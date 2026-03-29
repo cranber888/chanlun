@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>缠论分析系统</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
+</head>
+<body>
+    <div id="app">
+        <aside id="sidebar">
+            <div class="sidebar-header">
+                <h2>缠论分析</h2>
+            </div>
+
+            <!-- 搜索 -->
+            <div class="search-box">
+                <input type="text" id="searchInput" placeholder="搜索股票代码或名称..." autocomplete="off">
+                <div id="searchResults" class="search-results hidden"></div>
+            </div>
+
+            <!-- 自选股 -->
+            <div class="watchlist-section">
+                <h3>自选股</h3>
+                <div id="watchlist" class="watchlist"></div>
+            </div>
+        </aside>
+
+        <main id="main">
+            <!-- 顶部工具栏 -->
+            <div id="toolbar">
+                <div class="stock-info">
+                    <span id="stockTitle">请选择股票</span>
+                </div>
+                <div class="period-selector" id="periodSelector"></div>
+                <div class="toolbar-actions">
+                    <label class="toggle-label">
+                        <input type="checkbox" id="toggleBi" checked> 笔
+                    </label>
+                    <label class="toggle-label">
+                        <input type="checkbox" id="toggleSeg" checked> 线段
+                    </label>
+                    <label class="toggle-label">
+                        <input type="checkbox" id="toggleZS" checked> 中枢
+                    </label>
+                    <label class="toggle-label">
+                        <input type="checkbox" id="toggleBSP" checked> 买卖点
+                    </label>
+                </div>
+            </div>
+
+            <!-- 图表区域 -->
+            <div id="chartContainer">
+                <div id="chart"></div>
+                <div id="macdChart"></div>
+            </div>
+
+            <!-- 加载状态 -->
+            <div id="loading" class="hidden">
+                <div class="spinner"></div>
+                <span>正在分析...</span>
+            </div>
+        </main>
+    </div>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
