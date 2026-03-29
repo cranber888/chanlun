@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>缠论分析系统</title>
-    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/css/style.css?v=2">
     <script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
 </head>
 <body>
@@ -16,7 +16,7 @@
 
             <!-- 搜索 -->
             <div class="search-box">
-                <input type="text" id="searchInput" placeholder="搜索股票代码或名称..." autocomplete="off">
+                <input type="text" id="searchInput" placeholder="搜索股票/指数..." autocomplete="off">
                 <div id="searchResults" class="search-results hidden"></div>
             </div>
 
@@ -24,6 +24,38 @@
             <div class="watchlist-section">
                 <h3>自选股</h3>
                 <div id="watchlist" class="watchlist"></div>
+            </div>
+
+            <!-- 笔规则设置 -->
+            <div class="settings-section">
+                <h3>笔规则设置</h3>
+                <div class="settings-panel">
+                    <label class="setting-row">
+                        <span>严格笔</span>
+                        <input type="checkbox" id="cfgBiStrict" checked>
+                    </label>
+                    <label class="setting-row">
+                        <span>分型检查</span>
+                        <select id="cfgBiFxCheck">
+                            <option value="strict" selected>严格</option>
+                            <option value="loss">宽松</option>
+                            <option value="half">半严格</option>
+                            <option value="totally">完全</option>
+                        </select>
+                    </label>
+                    <label class="setting-row">
+                        <span>缺口算K线</span>
+                        <input type="checkbox" id="cfgGapAsKl">
+                    </label>
+                    <label class="setting-row">
+                        <span>笔尾极值</span>
+                        <input type="checkbox" id="cfgBiEndIsPeak" checked>
+                    </label>
+                    <label class="setting-row">
+                        <span>允许次高低</span>
+                        <input type="checkbox" id="cfgBiAllowSubPeak" checked>
+                    </label>
+                </div>
             </div>
         </aside>
 
@@ -47,6 +79,12 @@
                     <label class="toggle-label">
                         <input type="checkbox" id="toggleBSP" checked> 买卖点
                     </label>
+                    <label class="toggle-label">
+                        <input type="checkbox" id="toggleMA" checked> MA
+                    </label>
+                    <label class="toggle-label">
+                        <input type="checkbox" id="toggleBOLL"> BOLL
+                    </label>
                 </div>
             </div>
 
@@ -64,6 +102,6 @@
         </main>
     </div>
 
-    <script src="/static/js/app.js"></script>
+    <script src="/static/js/app.js?v=2"></script>
 </body>
 </html>

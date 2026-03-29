@@ -11,6 +11,11 @@ from ChanConfig import CChanConfig
 from Common.CEnum import AUTYPE, DATA_SRC, KL_TYPE
 from backend.utils.chan_serializer import serialize_kline_list
 
+# 将自定义指数分钟适配器注册到 DataAPI 命名空间（CChan custom: 机制需要）
+import backend.utils.akshare_index_min_api as _idx_min_mod
+import sys
+sys.modules["DataAPI.AkshareIndexMinAPI"] = _idx_min_mod
+
 KL_TYPE_MAP = {
     "K_5M": KL_TYPE.K_5M,
     "K_15M": KL_TYPE.K_15M,
@@ -35,17 +40,37 @@ KL_TYPE_LABELS = {
 MINUTE_LEVELS = {"K_5M", "K_15M", "K_30M", "K_60M"}
 
 
-def get_data_src_for_level(period: str, market: str) -> DATA_SRC:
+def get_data_src_for_level(period: str, market: str, is_index: bool = False):
+    """返回数据源标识（DATA_SRC 枚举或 custom: 字符串）"""
     if market == "HK":
         return DATA_SRC.AKSHARE
+    if is_index:
+        if period in MINUTE_LEVELS:
+            # 指数分钟数据用 AkShare 专用适配器
+            return "custom:AkshareIndexMinAPI.CAkshareIndexMin"
+        # 指数日线及以上用 BaoStock（AkShare 指数日线接口有日期类型兼容问题）
+        return DATA_SRC.BAO_STOCK
     if period in MINUTE_LEVELS:
         return DATA_SRC.BAO_STOCK
     return DATA_SRC.AKSHARE
 
 
-def format_code_for_src(code: str, data_src: DATA_SRC, market: str) -> str:
+def is_index_code(code: str) -> bool:
+    """判断是否为指数代码"""
+    # sh000001(上证指数), sz399001(深证成指), sh000300(沪深300) 等
+    if code.startswith(("sh", "sz")):
+        num = code[2:]
+        return num.startswith(("000", "399"))
+    # 纯数字: 000001 可能是平安银行也可能是上证指数，需要前缀区分
+    return False
+
+
+def format_code_for_src(code: str, data_src, market: str) -> str:
     """根据数据源格式化股票代码"""
     if market == "HK":
+        return code
+    # custom 数据源（指数分钟）直接用原始代码
+    if isinstance(data_src, str):
         return code
     if data_src == DATA_SRC.BAO_STOCK:
         # BaoStock 需要 sh.600000 或 sz.000001 格式
@@ -56,7 +81,9 @@ def format_code_for_src(code: str, data_src: DATA_SRC, market: str) -> str:
             return f"{prefix}.{code}"
         return code
     else:
-        # AkShare 用纯数字
+        # AkShare 用纯数字，但指数需要保留前缀
+        if is_index_code(code):
+            return code  # AkShare 指数用 sh000001 格式
         if "." in code:
             return code.split(".")[1]
         if code.startswith(("sh", "sz")):
@@ -64,21 +91,44 @@ def format_code_for_src(code: str, data_src: DATA_SRC, market: str) -> str:
         return code
 
 
-def analyze_stock(code: str, period: str = "K_DAY", begin_time: str = None, market: str = "A") -> dict:
+def analyze_stock(
+    code: str,
+    period: str = "K_DAY",
+    begin_time: str = None,
+    market: str = "A",
+    # 笔规则参数
+    bi_strict: bool = True,
+    bi_fx_check: str = "strict",
+    gap_as_kl: bool = False,
+    bi_end_is_peak: bool = True,
+    bi_allow_sub_peak: bool = True,
+) -> dict:
     """对指定股票进行缠论分析"""
     kl_type = KL_TYPE_MAP.get(period)
     if kl_type is None:
         raise ValueError(f"不支持的周期: {period}")
 
-    data_src = get_data_src_for_level(period, market)
+    idx = is_index_code(code)
+    data_src = get_data_src_for_level(period, market, is_index=idx)
     formatted_code = format_code_for_src(code, data_src, market)
 
     config = CChanConfig({
-        "bi_strict": True,
+        # 笔规则（可配置）
+        "bi_strict": bi_strict,
+        "bi_fx_check": bi_fx_check,
+        "gap_as_kl": gap_as_kl,
+        "bi_end_is_peak": bi_end_is_peak,
+        "bi_allow_sub_peak": bi_allow_sub_peak,
+        # 线段和中枢
         "seg_algo": "chan",
         "zs_combine": True,
+        # 买卖点
         "divergence_rate": 0.9,
         "bs_type": "1,1p,2,2s,3a,3b",
+        # 技术指标：均线 + 布林带
+        "mean_metrics": [5, 10, 20, 60],
+        "boll_n": 20,
+        # 静默
         "print_warning": False,
         "print_err_time": False,
     })

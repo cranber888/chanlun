@@ -1,6 +1,14 @@
 // 缠论分析系统 - 前端主逻辑
 const API = '';
 
+// MA 均线颜色
+const MA_COLORS = {
+    '5': '#FFD700',
+    '10': '#FF69B4',
+    '20': '#00BFFF',
+    '60': '#9370DB',
+};
+
 // ---- 状态 ----
 let state = {
     currentCode: null,
@@ -15,21 +23,13 @@ let state = {
 let mainChart = null;
 let macdChart = null;
 let candleSeries = null;
-let biSeries = null;
-let segSeries = null;
-let macdHistSeries = null;
-let macdDifSeries = null;
-let macdDeaSeries = null;
-let bspMarkers = [];
-
-// 中枢矩形 (用额外的 line series 模拟)
-let zsRectSeries = [];
 
 // ---- 初始化 ----
 document.addEventListener('DOMContentLoaded', () => {
     initPeriodSelector();
     initSearch();
     initToggles();
+    initBiSettings();
     loadWatchlist();
     initCharts();
 });
@@ -61,9 +61,7 @@ function selectPeriod(period) {
     document.querySelectorAll('.period-btn').forEach(b => {
         b.classList.toggle('active', b.dataset.period === period);
     });
-    if (state.currentCode) {
-        loadAnalysis();
-    }
+    if (state.currentCode) loadAnalysis();
 }
 
 // ---- 搜索 ----
@@ -89,9 +87,11 @@ function initSearch() {
 }
 
 async function doSearch(q) {
+    const container = document.getElementById('searchResults');
+    container.innerHTML = '<div class="search-item"><span style="color:#8892a4">搜索中...</span></div>';
+    container.classList.remove('hidden');
     const res = await fetch(`${API}/api/search?q=${encodeURIComponent(q)}`);
     const json = await res.json();
-    const container = document.getElementById('searchResults');
     container.innerHTML = '';
     if (json.ok && json.data.length > 0) {
         json.data.forEach(s => {
@@ -180,13 +180,46 @@ function selectStock(code, name, market) {
     loadAnalysis();
 }
 
+// ---- 笔规则配置 ----
+function getBiConfig() {
+    return {
+        bi_strict: document.getElementById('cfgBiStrict').checked,
+        bi_fx_check: document.getElementById('cfgBiFxCheck').value,
+        gap_as_kl: document.getElementById('cfgGapAsKl').checked,
+        bi_end_is_peak: document.getElementById('cfgBiEndIsPeak').checked,
+        bi_allow_sub_peak: document.getElementById('cfgBiAllowSubPeak').checked,
+    };
+}
+
+function initBiSettings() {
+    // 修改笔设置后自动重新分析
+    ['cfgBiStrict', 'cfgGapAsKl', 'cfgBiEndIsPeak', 'cfgBiAllowSubPeak'].forEach(id => {
+        document.getElementById(id).addEventListener('change', () => {
+            if (state.currentCode) loadAnalysis();
+        });
+    });
+    document.getElementById('cfgBiFxCheck').addEventListener('change', () => {
+        if (state.currentCode) loadAnalysis();
+    });
+}
+
 // ---- 加载分析 ----
 async function loadAnalysis() {
     const loading = document.getElementById('loading');
     loading.classList.remove('hidden');
 
     try {
-        const url = `${API}/api/analysis/${state.currentCode}?period=${state.currentPeriod}&market=${state.currentMarket}`;
+        const biCfg = getBiConfig();
+        const params = new URLSearchParams({
+            period: state.currentPeriod,
+            market: state.currentMarket,
+            bi_strict: biCfg.bi_strict,
+            bi_fx_check: biCfg.bi_fx_check,
+            gap_as_kl: biCfg.gap_as_kl,
+            bi_end_is_peak: biCfg.bi_end_is_peak,
+            bi_allow_sub_peak: biCfg.bi_allow_sub_peak,
+        });
+        const url = `${API}/api/analysis/${state.currentCode}?${params}`;
         const res = await fetch(url);
         const json = await res.json();
         if (json.ok) {
@@ -258,8 +291,7 @@ function renderCharts() {
     if (!state.analysisData || !mainChart) return;
     const data = state.analysisData;
 
-    // 清理旧 series
-    mainChart.priceScale('right').applyOptions({});
+    // 清理并重建图表
     clearAllSeries();
 
     // 1. K线
@@ -273,19 +305,25 @@ function renderCharts() {
     });
     candleSeries.setData(data.klines);
 
-    // 2. 笔
+    // 2. MA 均线
+    drawMA(data);
+
+    // 3. BOLL
+    drawBOLL(data);
+
+    // 4. 笔
     drawBi(data);
 
-    // 3. 线段
+    // 5. 线段
     drawSeg(data);
 
-    // 4. 中枢
+    // 6. 中枢
     drawZS(data);
 
-    // 5. 买卖点
+    // 7. 买卖点
     drawBSP(data);
 
-    // 6. MACD
+    // 8. MACD
     drawMACD(data);
 
     mainChart.timeScale().fitContent();
@@ -293,15 +331,74 @@ function renderCharts() {
 }
 
 function clearAllSeries() {
-    // 移除主图上所有 series 再重建
     if (mainChart) {
-        // remove all series by recreating
         const chartEl = document.getElementById('chart');
         const macdEl = document.getElementById('macdChart');
         mainChart.remove();
         macdChart.remove();
         initCharts();
     }
+}
+
+// ---- 绘制 MA 均线 ----
+function drawMA(data) {
+    if (!document.getElementById('toggleMA').checked) return;
+    if (!data.ma_data) return;
+
+    for (const [period, points] of Object.entries(data.ma_data)) {
+        if (points.length === 0) continue;
+        const color = MA_COLORS[period] || '#AAAAAA';
+        const series = mainChart.addLineSeries({
+            color: color,
+            lineWidth: 1,
+            crosshairMarkerVisible: false,
+            lastValueVisible: false,
+            priceLineVisible: false,
+            title: `MA${period}`,
+        });
+        series.setData(points);
+    }
+}
+
+// ---- 绘制 BOLL ----
+function drawBOLL(data) {
+    if (!document.getElementById('toggleBOLL').checked) return;
+    if (!data.boll_data || data.boll_data.length === 0) return;
+
+    // 上轨
+    const upperSeries = mainChart.addLineSeries({
+        color: 'rgba(255, 152, 0, 0.6)',
+        lineWidth: 1,
+        lineStyle: LightweightCharts.LineStyle.Dashed,
+        crosshairMarkerVisible: false,
+        lastValueVisible: false,
+        priceLineVisible: false,
+        title: 'BOLL上',
+    });
+    upperSeries.setData(data.boll_data.map(b => ({ time: b.time, value: b.upper })));
+
+    // 中轨
+    const midSeries = mainChart.addLineSeries({
+        color: 'rgba(255, 152, 0, 0.4)',
+        lineWidth: 1,
+        crosshairMarkerVisible: false,
+        lastValueVisible: false,
+        priceLineVisible: false,
+        title: 'BOLL中',
+    });
+    midSeries.setData(data.boll_data.map(b => ({ time: b.time, value: b.mid })));
+
+    // 下轨
+    const lowerSeries = mainChart.addLineSeries({
+        color: 'rgba(255, 152, 0, 0.6)',
+        lineWidth: 1,
+        lineStyle: LightweightCharts.LineStyle.Dashed,
+        crosshairMarkerVisible: false,
+        lastValueVisible: false,
+        priceLineVisible: false,
+        title: 'BOLL下',
+    });
+    lowerSeries.setData(data.boll_data.map(b => ({ time: b.time, value: b.lower })));
 }
 
 // ---- 绘制笔 ----
@@ -315,7 +412,6 @@ function drawBi(data) {
         points.push({ time: bi.end_time, value: bi.end_val });
     });
 
-    // 去重（相邻笔首尾共享端点）
     const deduped = [points[0]];
     for (let i = 1; i < points.length; i++) {
         if (points[i].time !== points[i - 1].time || points[i].value !== points[i - 1].value) {
@@ -323,7 +419,7 @@ function drawBi(data) {
         }
     }
 
-    biSeries = mainChart.addLineSeries({
+    const biSeries = mainChart.addLineSeries({
         color: '#FF8C00',
         lineWidth: 1,
         lineStyle: LightweightCharts.LineStyle.Solid,
@@ -352,7 +448,7 @@ function drawSeg(data) {
         }
     }
 
-    segSeries = mainChart.addLineSeries({
+    const segSeries = mainChart.addLineSeries({
         color: '#4FC3F7',
         lineWidth: 2,
         lineStyle: LightweightCharts.LineStyle.Solid,
@@ -368,9 +464,7 @@ function drawZS(data) {
     if (!document.getElementById('toggleZS').checked) return;
     if (!data.zs_list || data.zs_list.length === 0) return;
 
-    // 用 area series 模拟矩形（上下边界）
     data.zs_list.forEach(zs => {
-        // 为每个中枢创建一个 area series 来表示区域
         const areaSeries = mainChart.addAreaSeries({
             topColor: 'rgba(255, 165, 0, 0.12)',
             bottomColor: 'rgba(255, 165, 0, 0.03)',
@@ -381,7 +475,6 @@ function drawZS(data) {
             priceLineVisible: false,
         });
 
-        // 构造中枢的上边界数据
         const klines = data.klines;
         const areaData = [];
         for (const kl of klines) {
@@ -389,11 +482,8 @@ function drawZS(data) {
                 areaData.push({ time: kl.time, value: zs.high });
             }
         }
-        if (areaData.length > 0) {
-            areaSeries.setData(areaData);
-        }
+        if (areaData.length > 0) areaSeries.setData(areaData);
 
-        // 下边界线
         const lineSeries = mainChart.addLineSeries({
             color: 'rgba(255, 165, 0, 0.4)',
             lineWidth: 1,
@@ -408,11 +498,7 @@ function drawZS(data) {
                 lineData.push({ time: kl.time, value: zs.low });
             }
         }
-        if (lineData.length > 0) {
-            lineSeries.setData(lineData);
-        }
-
-        zsRectSeries.push(areaSeries, lineSeries);
+        if (lineData.length > 0) lineSeries.setData(lineData);
     });
 }
 
@@ -430,7 +516,6 @@ function drawBSP(data) {
         text: (bsp.is_buy ? 'B' : 'S') + bsp.type + (bsp.is_seg ? 's' : ''),
     }));
 
-    // 按时间排序
     markers.sort((a, b) => a.time - b.time);
     candleSeries.setMarkers(markers);
 }
@@ -439,8 +524,7 @@ function drawBSP(data) {
 function drawMACD(data) {
     if (!data.macd_list || data.macd_list.length === 0) return;
 
-    // MACD 柱状图
-    macdHistSeries = macdChart.addHistogramSeries({
+    const macdHistSeries = macdChart.addHistogramSeries({
         priceLineVisible: false,
         lastValueVisible: false,
         priceFormat: { type: 'price', precision: 4, minMove: 0.0001 },
@@ -451,8 +535,7 @@ function drawMACD(data) {
         color: m.macd >= 0 ? 'rgba(239, 83, 80, 0.7)' : 'rgba(38, 166, 154, 0.7)',
     })));
 
-    // DIF 线
-    macdDifSeries = macdChart.addLineSeries({
+    const macdDifSeries = macdChart.addLineSeries({
         color: '#4FC3F7',
         lineWidth: 1,
         crosshairMarkerVisible: false,
@@ -461,8 +544,7 @@ function drawMACD(data) {
     });
     macdDifSeries.setData(data.macd_list.map(m => ({ time: m.time, value: m.dif })));
 
-    // DEA 线
-    macdDeaSeries = macdChart.addLineSeries({
+    const macdDeaSeries = macdChart.addLineSeries({
         color: '#FFB74D',
         lineWidth: 1,
         crosshairMarkerVisible: false,
@@ -474,7 +556,7 @@ function drawMACD(data) {
 
 // ---- 显示/隐藏 开关 ----
 function initToggles() {
-    ['toggleBi', 'toggleSeg', 'toggleZS', 'toggleBSP'].forEach(id => {
+    ['toggleBi', 'toggleSeg', 'toggleZS', 'toggleBSP', 'toggleMA', 'toggleBOLL'].forEach(id => {
         document.getElementById(id).addEventListener('change', () => {
             if (state.analysisData) renderCharts();
         });

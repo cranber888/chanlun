@@ -121,15 +121,53 @@ body {
     flex: 1;
     overflow-y: auto;
     padding: 0 16px;
+    min-height: 0;
 }
 
-.watchlist-section h3 {
+.watchlist-section h3,
+.settings-section h3 {
     font-size: 13px;
     color: var(--text-secondary);
     text-transform: uppercase;
     letter-spacing: 1px;
     margin-bottom: 8px;
     padding-top: 12px;
+}
+
+/* Settings */
+.settings-section {
+    padding: 0 16px 12px;
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+}
+
+.settings-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.setting-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 12px;
+    color: var(--text-secondary);
+    cursor: pointer;
+}
+
+.setting-row input[type="checkbox"] {
+    accent-color: var(--accent);
+}
+
+.setting-row select {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-size: 12px;
+    outline: none;
 }
 
 .watchlist-item {
