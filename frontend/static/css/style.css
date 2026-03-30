@@ -235,6 +235,30 @@ body {
     font-size: 16px;
     font-weight: 600;
     min-width: 160px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.refresh-btn {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    border-radius: 4px;
+    font-size: 16px;
+    padding: 2px 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    line-height: 1;
+}
+.refresh-btn:hover { border-color: var(--accent); color: var(--accent); }
+.refresh-btn.spinning { animation: spin 0.8s linear infinite; }
+
+.auto-refresh-label {
+    font-size: 11px !important;
+}
+.auto-refresh-label #autoRefreshLabel.active {
+    color: var(--green);
 }
 
 .period-selector {
@@ -289,8 +313,14 @@ body {
 }
 
 #chart {
-    flex: 3;
+    flex: 5;
     min-height: 0;
+}
+
+#volumeChart {
+    flex: 1;
+    min-height: 0;
+    border-top: 1px solid var(--border);
 }
 
 #macdChart {
@@ -326,6 +356,127 @@ body {
 }
 
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* Backtest Button */
+.backtest-btn {
+    width: 100%;
+    padding: 8px;
+    background: var(--accent);
+    color: var(--bg-primary);
+    border: none;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 4px;
+    transition: opacity 0.2s;
+}
+.backtest-btn:hover { opacity: 0.85; }
+.backtest-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Backtest Panel */
+#backtestPanel {
+    background: var(--bg-secondary);
+    border-top: 2px solid var(--accent);
+    max-height: 45vh;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+}
+#backtestPanel.hidden { display: none; }
+
+.backtest-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 16px;
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    background: var(--bg-secondary);
+    z-index: 1;
+}
+.backtest-header h3 {
+    font-size: 14px;
+    color: var(--accent);
+    margin: 0;
+}
+.close-btn {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 20px;
+    cursor: pointer;
+    padding: 0 4px;
+}
+.close-btn:hover { color: var(--red); }
+
+.backtest-summary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+}
+
+.stat-card {
+    background: var(--bg-card);
+    border-radius: 6px;
+    padding: 8px 14px;
+    min-width: 100px;
+    text-align: center;
+}
+.stat-card .label {
+    font-size: 11px;
+    color: var(--text-secondary);
+    margin-bottom: 4px;
+}
+.stat-card .value {
+    font-size: 16px;
+    font-weight: 600;
+}
+.stat-card .value.positive { color: var(--red); }
+.stat-card .value.negative { color: var(--green); }
+
+#backtestEquity {
+    height: 120px;
+    min-height: 120px;
+    border-bottom: 1px solid var(--border);
+}
+
+.backtest-trades {
+    padding: 8px 16px 16px;
+}
+.backtest-trades h4 {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+}
+
+.trades-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+}
+.trades-table th {
+    background: var(--bg-card);
+    padding: 6px 8px;
+    text-align: center;
+    color: var(--text-secondary);
+    font-weight: 500;
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+}
+.trades-table td {
+    padding: 5px 8px;
+    text-align: center;
+    border-bottom: 1px solid var(--border);
+}
+.trades-table tr:hover { background: var(--hover); }
 
 /* Scrollbar */
 ::-webkit-scrollbar { width: 6px; }
